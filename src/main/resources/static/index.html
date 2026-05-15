@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayGateway Simulator</title>
+  <style>
+    :root {
+      --bg:        #080d18;
+      --bg2:       #0d1525;
+      --bg3:       #111e33;
+      --card:      #0f1b2d;
+      --border:    #1a2d46;
+      --border2:   #243d5a;
+      --txt:       #e8f1ff;
+      --txt2:      #7a9ab8;
+      --txt3:      #3d5a75;
+      --blue:      #3b8ef0;
+      --blue-dim:  rgba(59,142,240,.08);
+      --purple:    #9b6ff5;
+      --green:     #22c97e;
+      --green-dim: rgba(34,201,126,.08);
+      --yellow:    #f0b429;
+      --yellow-dim:rgba(240,180,41,.07);
+      --red:       #f05252;
+      --red-dim:   rgba(240,82,82,.07);
+    }
+
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8,13,24,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 36px; height: 60px;
+    }
+
+    .logo {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 24px rgba(59,142,240,.35);
+    }
+
+    .hd-title  { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+    .hd-spacer { flex: 1; }
+
+    .pill {
+      font-size: 11px; color: var(--txt2);
+      background: var(--bg3); border: 1px solid var(--border);
+      padding: 3px 11px; border-radius: 20px;
+    }
+
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--txt2);
+      background: var(--bg3); border: 1px solid var(--border);
+      padding: 4px 12px; border-radius: 20px;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── STATS BAR ───────────────────────────────────────────────── */
+    .stats-bar {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      background: var(--border); gap: 1px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      background: var(--bg2); padding: 22px 28px;
+      transition: background .2s;
+    }
+    .stat:hover { background: var(--card); }
+
+    .stat-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--txt3); margin-bottom: 8px;
+    }
+
+    .stat-num {
+      font-size: 30px; font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-hint { font-size: 11px; color: var(--txt3); margin-top: 5px; }
+
+    .s-total    .stat-num { color: var(--txt); }
+    .s-success  .stat-num { color: var(--green); }
+    .s-proc     .stat-num { color: var(--yellow); }
+    .s-failed   .stat-num { color: var(--red); }
+
+    /* ── LAYOUT ──────────────────────────────────────────────────── */
+    .wrap {
+      max-width: 1160px; margin: 0 auto;
+      padding: 32px 20px;
+      display: flex; flex-direction: column; gap: 22px;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    /* ── CARDS ───────────────────────────────────────────────────── */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 26px;
+      position: relative; overflow: hidden;
+    }
+
+    .card::after {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--purple));
+      opacity: 0; transition: opacity .3s;
+    }
+
+    .card:focus-within::after { opacity: 1; }
+
+    .ch {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .ci {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .ci-blue   { background: var(--blue-dim);   border: 1px solid rgba(59,142,240,.25); }
+    .ci-purple { background: rgba(155,111,245,.1); border: 1px solid rgba(155,111,245,.25); }
+    .ci-green  { background: var(--green-dim);  border: 1px solid rgba(34,201,126,.25); }
+
+    .ct { font-size: 14px; font-weight: 600; }
+    .cs { font-size: 12px; color: var(--txt2); margin-top: 2px; }
+
+    /* ── FORM ────────────────────────────────────────────────────── */
+    .fg { margin-bottom: 14px; }
+
+    label {
+      display: block; font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--txt2); margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 13px;
+      color: var(--txt); font-size: 13px; font-family: inherit;
+      transition: border-color .18s, box-shadow .18s; outline: none;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,142,240,.12);
+    }
+
+    .input-row { display: flex; gap: 8px; }
+    .input-row input { flex: 1; }
+
+    .btn-ghost {
+      background: rgba(59,142,240,.1);
+      color: #6ab3f8; border: 1px solid rgba(59,142,240,.25);
+      border-radius: 8px; padding: 0 14px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      white-space: nowrap; font-family: inherit; flex-shrink: 0;
+      transition: background .18s;
+    }
+
+    .btn-ghost:hover { background: rgba(59,142,240,.18); }
+
+    .btn {
+      width: 100%; border: none; border-radius: 10px; padding: 12px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: opacity .18s, transform .1s, box-shadow .18s;
+      margin-top: 4px;
+    }
+
+    .btn-blue {
+      background: linear-gradient(135deg, #2478e4, #7c5fe0);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(59,142,240,.22);
+    }
+
+    .btn-blue:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 6px 22px rgba(59,142,240,.32); }
+    .btn-blue:active { transform: none; box-shadow: none; }
+    .btn-blue:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .btn-purple {
+      background: linear-gradient(135deg, #6b42d4, #9b6ff5);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(155,111,245,.22);
+    }
+
+    .btn-purple:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 6px 22px rgba(155,111,245,.32); }
+    .btn-purple:active { transform: none; box-shadow: none; }
+    .btn-purple:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* ── RESULT PANEL ────────────────────────────────────────────── */
+    .rp {
+      margin-top: 16px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 15px; display: none;
+      animation: sd .2s ease;
+    }
+
+    .rp.show { display: block; }
+
+    @keyframes sd { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:none; } }
+
+    .rp-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 13px;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    }
+
+    .b-SUCCESS   { background:var(--green-dim); color:#28d98a; border:1px solid rgba(34,201,126,.3); }
+    .b-FAILED    { background:var(--red-dim);   color:#f07070; border:1px solid rgba(240,82,82,.3); }
+    .b-PROCESSING{ background:var(--yellow-dim);color:#f0c850; border:1px solid rgba(240,180,41,.3); }
+    .b-INITIATED { background:var(--blue-dim);  color:#6aadf7; border:1px solid rgba(59,142,240,.3); }
+
+    .auto-tag {
+      font-size: 11px; color: var(--yellow);
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .rf { display: grid; gap: 1px; }
+
+    .rf-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 12px; padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rf-row:last-child { border-bottom: none; }
+    .rf-k { color: var(--txt2); flex-shrink: 0; margin-right: 10px; }
+    .rf-v { color: var(--txt); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; text-align: right; word-break: break-all; }
+
+    .ep {
+      margin-top: 13px;
+      background: var(--red-dim); border: 1px solid rgba(240,82,82,.3);
+      border-radius: 8px; padding: 11px 13px;
+      color: #f07070; font-size: 12px; display: none;
+      animation: sd .2s ease;
+    }
+
+    .ep.show { display: block; }
+
+    /* ── SPINNER ─────────────────────────────────────────────────── */
+    .spin {
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,.25); border-top-color: #fff;
+      border-radius: 50%; animation: rot .6s linear infinite;
+      vertical-align: middle; margin-right: 5px;
+    }
+
+    @keyframes rot { to { transform: rotate(360deg); } }
+
+    /* ── STATE MACHINE ───────────────────────────────────────────── */
+    .sm-wrap {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 26px;
+    }
+
+    .smf {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; flex-wrap: wrap; margin: 24px 0 28px;
+    }
+
+    .sn { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    .sb {
+      width: 96px; height: 96px; border-radius: 50%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-align: center; gap: 5px;
+    }
+
+    .sb-icon { font-size: 22px; }
+
+    .sb-ini  { background:var(--blue-dim);   border:2px solid rgba(59,142,240,.4);  color:#6aadf7; }
+    .sb-proc { background:var(--yellow-dim); border:2px solid rgba(240,180,41,.4);  color:#f0c850; animation: gy 2.5s infinite; }
+    .sb-ok   { background:var(--green-dim);  border:2px solid rgba(34,201,126,.4);  color:#28d98a; }
+    .sb-fail { background:var(--red-dim);    border:2px solid rgba(240,82,82,.4);   color:#f07070; }
+
+    @keyframes gy { 0%,100%{box-shadow:0 0 0 0 rgba(240,180,41,0)} 50%{box-shadow:0 0 18px 4px rgba(240,180,41,.18)} }
+
+    .sl { font-size: 10px; color: var(--txt3); text-align: center; }
+
+    .sa { padding: 0 14px; color: var(--txt3); font-size: 22px; }
+
+    .sa-fork {
+      display: flex; flex-direction: column; gap: 22px;
+    }
+
+    .sa-fork-row { display: flex; align-items: center; }
+
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;
+    }
+
+    .info-box {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 15px;
+    }
+
+    .info-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+    .info-body  { font-size: 12px; color: var(--txt2); line-height: 1.65; }
+
+    /* ── TRANSACTION LOG ─────────────────────────────────────────── */
+    .tx-wrap {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 26px;
+    }
+
+    .log-hdr {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .log-meta { margin-left: auto; font-size: 12px; color: var(--txt3); }
+
+    .log-cols {
+      display: grid;
+      grid-template-columns: 150px 1fr 150px 70px 100px;
+      gap: 10px; padding: 6px 12px 10px;
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--txt3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-scroll { max-height: 300px; overflow-y: auto; }
+
+    .log-row {
+      display: grid;
+      grid-template-columns: 150px 1fr 150px 70px 100px;
+      gap: 10px; padding: 11px 12px;
+      border-radius: 8px; cursor: pointer;
+      transition: background .15s; align-items: center;
+    }
+
+    .log-row:hover { background: var(--bg); }
+
+    .log-id   { color: #5ea7f5; font-family: monospace; font-size: 11px; }
+    .log-time { color: var(--txt2); font-size: 11px; }
+    .log-amt  { color: #88e06e; font-weight: 600; font-size: 13px; text-align: right; }
+    .log-rt   { color: var(--txt2); text-align: center; font-size: 12px; }
+
+    .log-empty {
+      text-align: center; padding: 40px;
+      color: var(--txt3); font-size: 13px;
+    }
+
+    /* ── SCROLLBAR ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">⚡</div>
+  <div class="hd-title">PayGateway Simulator</div>
+  <div class="hd-spacer"></div>
+  <div class="pill">Java · Spring Boot · MySQL · Redis</div>
+  <div class="live-pill"><span class="live-dot"></span> API Live</div>
+</header>
+
+<!-- ── STATS BAR ────────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat s-total">
+    <div class="stat-label">Total Transactions</div>
+    <div class="stat-num" id="s-total">—</div>
+    <div class="stat-hint">all time</div>
+  </div>
+  <div class="stat s-success">
+    <div class="stat-label">Successful</div>
+    <div class="stat-num" id="s-success">—</div>
+    <div class="stat-hint">terminal · SUCCESS</div>
+  </div>
+  <div class="stat s-proc">
+    <div class="stat-label">Processing</div>
+    <div class="stat-num" id="s-proc">—</div>
+    <div class="stat-hint">pending retry</div>
+  </div>
+  <div class="stat s-failed">
+    <div class="stat-label">Failed</div>
+    <div class="stat-num" id="s-failed">—</div>
+    <div class="stat-hint">terminal · FAILED</div>
+  </div>
+</div>
+
+<!-- ── MAIN ─────────────────────────────────────────────────────────────── -->
+<div class="wrap">
+
+  <div class="grid2">
+
+    <!-- INITIATE PAYMENT ─────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="ch">
+        <div class="ci ci-blue">💳</div>
+        <div>
+          <div class="ct">Initiate Payment</div>
+          <div class="cs">POST /api/payments/initiate · idempotent</div>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>Idempotency Key</label>
+        <div class="input-row">
+          <input type="text" id="iKey" placeholder="UUID — uniquely identifies this payment" />
+          <button class="btn-ghost" onclick="genKey()">Generate</button>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>Amount (₹ INR)</label>
+        <input type="number" id="amount" placeholder="e.g. 499.99" step="0.01" min="0.01" />
+      </div>
+
+      <button class="btn btn-blue" id="payBtn" onclick="initiatePayment()">
+        Initiate Payment →
+      </button>
+
+      <div class="rp" id="payResult"></div>
+      <div class="ep" id="payError"></div>
+    </div>
+
+    <!-- CHECK STATUS ─────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="ch">
+        <div class="ci ci-purple">🔍</div>
+        <div>
+          <div class="ct">Check Transaction Status</div>
+          <div class="cs">GET /api/payments/{id} · real-time state</div>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>Transaction ID</label>
+        <input type="text" id="txId" placeholder="Paste transaction UUID here" />
+      </div>
+
+      <button class="btn btn-purple" id="statusBtn" onclick="checkStatus()" style="margin-top:14px">
+        Check Status →
+      </button>
+
+      <div class="rp" id="statusResult"></div>
+      <div class="ep" id="statusError"></div>
+    </div>
+
+  </div>
+
+  <!-- STATE MACHINE DIAGRAM ───────────────────────────────────────────── -->
+  <div class="sm-wrap">
+    <div class="ch">
+      <div class="ci ci-green">🔄</div>
+      <div>
+        <div class="ct">Transaction State Machine</div>
+        <div class="cs">Transitions are strictly enforced — no skipping, no going backwards</div>
+      </div>
+    </div>
+
+    <div class="smf">
+      <!-- INITIATED -->
+      <div class="sn">
+        <div class="sb sb-ini"><span class="sb-icon">◷</span>INITIATED</div>
+        <div class="sl">Created in DB</div>
+      </div>
+
+      <div class="sa">→</div>
+
+      <!-- PROCESSING -->
+      <div class="sn">
+        <div class="sb sb-proc"><span class="sb-icon">⏳</span>PROCESSING</div>
+        <div class="sl">Payment in flight</div>
+      </div>
+
+      <!-- FORK -->
+      <div class="sa-fork" style="margin-left:2px">
+        <div class="sa-fork-row">
+          <div class="sa">→</div>
+          <div class="sn">
+            <div class="sb sb-ok"><span class="sb-icon">✓</span>SUCCESS</div>
+            <div class="sl">Terminal · webhook fired</div>
+          </div>
+        </div>
+        <div class="sa-fork-row">
+          <div class="sa">→</div>
+          <div class="sn">
+            <div class="sb sb-fail"><span class="sb-icon">✕</span>FAILED</div>
+            <div class="sl">After 3 retries · webhook fired</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="info-title" style="color:#6aadf7">🔁 Idempotency</div>
+        <div class="info-body">Redis check → MySQL fallback → 24 hr TTL. The same idempotency key always returns the same transaction — never charged twice.</div>
+      </div>
+      <div class="info-box">
+        <div class="info-title" style="color:#f0c850">⏱ Exponential Backoff</div>
+        <div class="info-body">RetryService polls every 5 s. Retry 1 → wait 2 s, Retry 2 → wait 4 s, Retry 3 → wait 8 s. Permanent FAILED after 3 failures.</div>
+      </div>
+      <div class="info-box">
+        <div class="info-title" style="color:#28d98a">🔒 Optimistic Locking</div>
+        <div class="info-body">JPA <code style="font-size:11px;background:var(--bg3);padding:1px 4px;border-radius:3px">@Version</code> on every transaction row. Concurrent state updates throw an exception instead of silently corrupting data.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSACTION LOG ─────────────────────────────────────────────────── -->
+  <div class="tx-wrap">
+    <div class="log-hdr">
+      <div class="ci ci-green">📋</div>
+      <div>
+        <div class="ct">Transaction History</div>
+        <div class="cs">Click any row to load it into the status checker above</div>
+      </div>
+      <div class="log-meta" id="logMeta">0 transactions</div>
+    </div>
+
+    <div class="log-cols">
+      <div>Status</div>
+      <div>Transaction ID</div>
+      <div>Timestamp</div>
+      <div style="text-align:center">Retries</div>
+      <div style="text-align:right">Amount</div>
+    </div>
+
+    <div class="log-scroll">
+      <div id="logBody">
+        <div class="log-empty">No transactions yet — initiate one above.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+  // ── state ──────────────────────────────────────────────────────────────
+  let txList = JSON.parse(localStorage.getItem('txLog') || '[]');
+  const pollingSet = new Set();
+
+  // ── boot ───────────────────────────────────────────────────────────────
+  renderLog();
+  fetchStats();
+  setInterval(fetchStats, 10000);
+
+  // resume polling for any PROCESSING transactions from previous sessions
+  txList.filter(t => t.status === 'PROCESSING' || t.status === 'INITIATED')
+        .forEach(t => startPolling(t.id));
+
+  // ── stats ──────────────────────────────────────────────────────────────
+  async function fetchStats() {
+    try {
+      const r = await fetch('/api/payments/stats');
+      if (!r.ok) return;
+      const d = await r.json();
+      set('s-total',   d.total   ?? 0);
+      set('s-success', d.success ?? 0);
+      set('s-proc',    d.processing ?? 0);
+      set('s-failed',  d.failed  ?? 0);
+    } catch (_) {}
+  }
+
+  function set(id, v) { document.getElementById(id).textContent = v; }
+
+  // ── key generator ──────────────────────────────────────────────────────
+  function genKey() {
+    document.getElementById('iKey').value = crypto.randomUUID();
+  }
+
+  // ── initiate payment ───────────────────────────────────────────────────
+  async function initiatePayment() {
+    closeAll('payResult', 'payError');
+    const key = document.getElementById('iKey').value.trim();
+    const amt = document.getElementById('amount').value.trim();
+
+    if (!key) return showErr('payError', 'Please enter or generate an idempotency key.');
+    if (!amt || parseFloat(amt) <= 0) return showErr('payError', 'Please enter a valid amount greater than 0.');
+
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Processing…';
+
+    try {
+      const res = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotencyKey: key, amount: parseFloat(amt) })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      renderResult('payResult', data);
+      addToLog(data);
+      fetchStats();
+      if (data.status === 'PROCESSING' || data.status === 'INITIATED') startPolling(data.id, 'payResult');
+    } catch (e) {
+      showErr('payError', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Initiate Payment →';
+    }
+  }
+
+  // ── check status ────────────────────────────────────────────────────────
+  async function checkStatus() {
+    closeAll('statusResult', 'statusError');
+    const id = document.getElementById('txId').value.trim();
+    if (!id) return showErr('statusError', 'Please enter a transaction ID.');
+
+    const btn = document.getElementById('statusBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Fetching…';
+
+    try {
+      const res = await fetch(`/api/payments/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Transaction not found');
+      renderResult('statusResult', data);
+      updateLog(data);
+      fetchStats();
+    } catch (e) {
+      showErr('statusError', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Check Status →';
+    }
+  }
+
+  // ── auto-poll for PROCESSING transactions ──────────────────────────────
+  function startPolling(txId, resultElId) {
+    if (pollingSet.has(txId)) return;
+    pollingSet.add(txId);
+
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/payments/${encodeURIComponent(txId)}`);
+        const data = await res.json();
+        if (!res.ok) { stop(); return; }
+
+        updateLog(data);
+        if (resultElId) renderResult(resultElId, data, true);
+
+        if (data.status !== 'PROCESSING' && data.status !== 'INITIATED') {
+          stop(); fetchStats();
+        }
+      } catch (_) { stop(); }
+
+      function stop() { clearInterval(timer); pollingSet.delete(txId); }
+    }, 3000);
+  }
+
+  // ── result panel renderer ───────────────────────────────────────────────
+  function renderResult(elId, tx, polling = false) {
+    const el = document.getElementById(elId);
+    el.className = 'rp show';
+    const live = polling && (tx.status === 'PROCESSING' || tx.status === 'INITIATED');
+    el.innerHTML = `
+      <div class="rp-top">
+        <span class="badge b-${tx.status}">${icon(tx.status)} ${tx.status}</span>
+        ${live ? '<span class="auto-tag"><span class="spin" style="border-top-color:var(--yellow)"></span>Auto-refreshing…</span>' : ''}
+      </div>
+      <div class="rf">
+        <div class="rf-row"><span class="rf-k">Transaction ID</span><span class="rf-v">${tx.id}</span></div>
+        <div class="rf-row"><span class="rf-k">Amount</span><span class="rf-v">₹${tx.amount}</span></div>
+        <div class="rf-row"><span class="rf-k">Retry Count</span><span class="rf-v">${tx.retryCount} / 3</span></div>
+        <div class="rf-row"><span class="rf-k">Version (OL)</span><span class="rf-v">${tx.version}</span></div>
+        <div class="rf-row"><span class="rf-k">Created</span><span class="rf-v">${fmt(tx.createdAt)}</span></div>
+        <div class="rf-row"><span class="rf-k">Updated</span><span class="rf-v">${fmt(tx.updatedAt)}</span></div>
+      </div>`;
+  }
+
+  // ── helpers ─────────────────────────────────────────────────────────────
+  function showErr(id, msg) {
+    const el = document.getElementById(id);
+    el.className = 'ep show';
+    el.textContent = '⚠ ' + msg;
+  }
+
+  function closeAll(...ids) {
+    ids.forEach(id => { const el = document.getElementById(id); if(el) el.className = el.className.split(' ')[0]; });
+  }
+
+  function icon(s) { return { SUCCESS:'✓', FAILED:'✕', PROCESSING:'⏳', INITIATED:'◷' }[s] || '?'; }
+
+  function fmt(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'medium' });
+  }
+
+  // ── log ─────────────────────────────────────────────────────────────────
+  function addToLog(tx) {
+    txList = txList.filter(t => t.id !== tx.id);
+    txList.unshift(tx);
+    if (txList.length > 50) txList.pop();
+    savLog(); renderLog();
+  }
+
+  function updateLog(tx) {
+    const i = txList.findIndex(t => t.id === tx.id);
+    if (i !== -1) { txList[i] = tx; savLog(); renderLog(); }
+  }
+
+  function savLog() { localStorage.setItem('txLog', JSON.stringify(txList)); }
+
+  function renderLog() {
+    const body = document.getElementById('logBody');
+    document.getElementById('logMeta').textContent =
+      `${txList.length} transaction${txList.length !== 1 ? 's' : ''}`;
+
+    if (!txList.length) {
+      body.innerHTML = '<div class="log-empty">No transactions yet — initiate one above.</div>';
+      return;
+    }
+
+    body.innerHTML = txList.map(tx => `
+      <div class="log-row" onclick="loadTx('${tx.id}')">
+        <div><span class="badge b-${tx.status}" style="padding:3px 9px;font-size:10px">${icon(tx.status)} ${tx.status}</span></div>
+        <div class="log-id">${tx.id.slice(0, 26)}…</div>
+        <div class="log-time">${fmt(tx.createdAt)}</div>
+        <div class="log-rt">${tx.retryCount}</div>
+        <div class="log-amt">₹${tx.amount}</div>
+      </div>`).join('');
+  }
+
+  function loadTx(id) {
+    document.getElementById('txId').value = id;
+    checkStatus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

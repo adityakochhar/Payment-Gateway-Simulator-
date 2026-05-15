@@ -37,6 +37,14 @@ public class PaymentController {
     }
 
     /**
+     * Live transaction counts by status — used by the UI stats bar.
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats() {
+        return ResponseEntity.ok(paymentService.getStats());
+    }
+
+    /**
      * Get transaction status by ID.
      */
     @GetMapping("/{transactionId}")

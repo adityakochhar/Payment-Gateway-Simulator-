@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -86,6 +88,16 @@ public class PaymentService {
         }
 
         return transaction;
+    }
+
+    public Map<String, Object> getStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("total", transactionRepository.count());
+        stats.put("initiated", transactionRepository.countByStatus(TransactionStatus.INITIATED));
+        stats.put("processing", transactionRepository.countByStatus(TransactionStatus.PROCESSING));
+        stats.put("success", transactionRepository.countByStatus(TransactionStatus.SUCCESS));
+        stats.put("failed", transactionRepository.countByStatus(TransactionStatus.FAILED));
+        return stats;
     }
 
     public Transaction getTransaction(String transactionId) {

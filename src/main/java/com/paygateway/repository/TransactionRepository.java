@@ -14,4 +14,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
     Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
 
     List<Transaction> findByStatusAndRetryCountLessThan(TransactionStatus status, int maxRetries);
+
+    long countByStatus(TransactionStatus status);
 }

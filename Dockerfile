@@ -8,4 +8,13 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/payment-gateway-simulator-1.0.0.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Memory-optimised for Render free tier (512 MB RAM)
+# -Xmx300m  → max heap 300 MB
+# -Xss512k  → smaller thread stacks
+# -XX:+UseSerialGC → single-threaded GC, less overhead on small instances
+ENTRYPOINT ["java", \
+  "-Xmx300m", "-Xss512k", \
+  "-XX:+UseSerialGC", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]
