@@ -585,7 +585,7 @@
   // ── stats ──────────────────────────────────────────────────────────────
   async function fetchStats() {
     try {
-      const r = await fetch('/api/payments/stats');
+      const r = await fetch('https://payment-gateway-simulator-backend.onrender.com/api/payments/stats');
       if (!r.ok) return;
       const d = await r.json();
       set('s-total',   d.total   ?? 0);
@@ -616,7 +616,7 @@
     btn.innerHTML = '<span class="spin"></span>Processing…';
 
     try {
-      const res = await fetch('/api/payments/initiate', {
+      const res = await fetch('https://payment-gateway-simulator-backend.onrender.com/api/payments/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idempotencyKey: key, amount: parseFloat(amt) })
@@ -647,7 +647,7 @@
     btn.innerHTML = '<span class="spin"></span>Fetching…';
 
     try {
-      const res = await fetch(`/api/payments/${encodeURIComponent(id)}`);
+      const res = await fetch(`https://payment-gateway-simulator-backend.onrender.com/api/payments/${encodeURIComponent(id)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Transaction not found');
       renderResult('statusResult', data);
@@ -668,7 +668,7 @@
 
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/payments/${encodeURIComponent(txId)}`);
+        const res = await fetch(`https://payment-gateway-simulator-backend.onrender.com/api/payments/${encodeURIComponent(txId)}`);
         const data = await res.json();
         if (!res.ok) { stop(); return; }
 
