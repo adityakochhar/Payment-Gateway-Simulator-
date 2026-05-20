@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.List;
@@ -43,9 +42,10 @@ public class RetryService {
     /**
      * Runs every 5 seconds, picks up PROCESSING transactions that need retry.
      * Exponential backoff: 2s, 4s, 8s.
+     * Not @Transactional at the loop level — each save() is its own transaction
+     * so one optimistic-lock failure doesn't roll back the entire batch.
      */
     @Scheduled(fixedDelay = 5000)
-    @Transactional
     public void retryFailedPayments() {
         List<Transaction> stuck = transactionRepository
                 .findByStatusAndRetryCountLessThan(TransactionStatus.PROCESSING, maxRetryAttempts);

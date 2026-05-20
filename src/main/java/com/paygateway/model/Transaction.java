@@ -23,10 +23,10 @@ public class Transaction {
     @Column(name = "status", nullable = false, length = 20)
     private TransactionStatus status;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", columnDefinition = "datetime")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", columnDefinition = "datetime")
     private LocalDateTime updatedAt;
 
     // Optimistic locking — prevents concurrent state corruption

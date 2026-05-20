@@ -467,7 +467,7 @@
 
       <div class="fg">
         <label>Transaction ID</label>
-        <input type="text" id="txId" placeholder="Paste transaction UUID here" />
+        <input type="text" id="txId" placeholder="Auto-filled after payment — or paste a transaction ID" />
       </div>
 
       <button class="btn btn-purple" id="statusBtn" onclick="checkStatus()" style="margin-top:14px">
@@ -626,6 +626,7 @@
       renderResult('payResult', data);
       addToLog(data);
       fetchStats();
+      document.getElementById('txId').value = data.id;
       if (data.status === 'PROCESSING' || data.status === 'INITIATED') startPolling(data.id, 'payResult');
     } catch (e) {
       showErr('payError', e.message);

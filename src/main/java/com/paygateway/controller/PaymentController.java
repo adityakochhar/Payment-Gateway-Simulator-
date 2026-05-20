@@ -10,7 +10,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.stream.Collectors;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -51,6 +54,15 @@ public class PaymentController {
     public ResponseEntity<Transaction> getPaymentStatus(@PathVariable String transactionId) {
         Transaction transaction = paymentService.getTransaction(transactionId);
         return ResponseEntity.ok(transaction);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(MethodArgumentNotValidException ex) {
+        String msg = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("Validation error: {}", msg);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg));
     }
 
     @ExceptionHandler(RuntimeException.class)
