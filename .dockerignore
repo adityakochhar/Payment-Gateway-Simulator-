@@ -1,0 +1,5 @@
+# Docker only needs pom.xml and src/ - skip everything else, and never copy local secrets
+target/
+frontend/
+.git/
+src/main/resources/secrets.properties

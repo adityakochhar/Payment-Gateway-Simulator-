@@ -1,58 +1,43 @@
-:root {
-  --bg:        #080d18;
-  --bg2:       #0d1525;
-  --bg3:       #111e33;
-  --card:      #0f1b2d;
-  --border:    #1a2d46;
-  --border2:   #243d5a;
-  --txt:       #e8f1ff;
-  --txt2:      #7a9ab8;
-  --txt3:      #3d5a75;
-  --blue:      #3b8ef0;
-  --blue-dim:  rgba(59,142,240,.08);
-  --purple:    #9b6ff5;
-  --green:     #22c97e;
-  --green-dim: rgba(34,201,126,.08);
-  --yellow:    #f0b429;
-  --yellow-dim:rgba(240,180,41,.07);
-  --red:       #f05252;
-  --red-dim:   rgba(240,82,82,.07);
+@import "tailwindcss";
+
+/*
+  Our own colors and fonts. Tailwind turns each one into classes, for example:
+    --color-paper  ->  bg-paper, text-paper, border-paper
+    --font-serif   ->  font-serif
+*/
+@theme {
+  --color-paper: #f5f2ec;
+  --color-ink: #151515;
+  --color-ink-soft: #3b3935;
+  --color-muted: #7a766e;
+  --color-line: #e5e0d6;
+  --color-accent: #ff5a1f;
+
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 }
 
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+}
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--txt);
-  min-height: 100vh;
-  font-size: 14px;
-  line-height: 1.6;
+  @apply bg-paper font-sans text-ink antialiased;
 }
 
-input[type="text"], input[type="number"] {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 13px;
-  color: var(--txt);
-  font-size: 13px;
-  font-family: inherit;
-  transition: border-color .18s, box-shadow .18s;
-  outline: none;
+/* Zig-zag bottom edge of the receipt in the hero */
+.receipt-edge {
+  -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 22px 100%;
+  mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 22px 100%;
 }
 
-input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(59,142,240,.12);
+/* Hide the up/down arrows of number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-@keyframes sd { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:none} }
-@keyframes rot { to{transform:rotate(360deg)} }
-@keyframes gy { 0%,100%{box-shadow:0 0 0 0 rgba(240,180,41,0)} 50%{box-shadow:0 0 18px 4px rgba(240,180,41,.18)} }
-
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+input[type="number"] {
+  -moz-appearance: textfield;
+}

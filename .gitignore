@@ -1,17 +1,14 @@
-# Java / Maven
+# Build output (Maven and Vite rebuild these)
 target/
-*.class
-*.jar
-*.war
-
-# IDE
-.idea/
-*.iml
-
-# OS
-.DS_Store
-*.log
-
-# React / Node
 frontend/node_modules/
 frontend/dist/
+
+# Editors and macOS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Secrets - real passwords live here, never commit them
+src/main/resources/secrets.properties
+.env

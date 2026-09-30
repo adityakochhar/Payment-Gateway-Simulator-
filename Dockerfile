@@ -16,5 +16,4 @@ EXPOSE 8080
 ENTRYPOINT ["java", \
   "-Xmx300m", "-Xss512k", \
   "-XX:+UseSerialGC", \
-  "-Djava.security.egd=file:/dev/./urandom", \
   "-jar", "app.jar"]

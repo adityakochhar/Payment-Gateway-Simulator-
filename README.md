@@ -1,236 +1,187 @@
 # Payment Gateway Simulator
 
-A production-style backend simulation of how real UPI/payment systems work internally — built with Java 17, Spring Boot 3, MySQL, and Redis. Includes a live web UI served directly from the app.
+A simulation of how a real payment gateway (like UPI) works on the inside — built with
+**Java 17, Spring Boot 3, MySQL, Redis** and a **React** dashboard.
 
-## What This Simulates
-
-| Feature | Details |
+| Feature | What it does |
 |---|---|
-| **State Machine** | `INITIATED → PROCESSING → SUCCESS/FAILED`. Strictly enforced — no skipping, no going backwards |
-| **Idempotency** | Same `idempotencyKey` always returns the same transaction, never processed twice |
-| **Retry + Backoff** | Auto-retries at 2 s, 4 s, 8 s. Permanently FAILED after 3 attempts |
-| **Webhook** | Fires a notification on every terminal state (SUCCESS / FAILED) |
-| **Optimistic Locking** | JPA `@Version` prevents concurrent updates from corrupting state |
-| **Redis Dedup** | Idempotency keys cached in Redis with 24-hour TTL for instant duplicate detection |
+| **State machine** | `INITIATED → PROCESSING → SUCCESS / FAILED`. No skipping, no going backwards |
+| **Idempotency** | The same `idempotencyKey` always returns the same payment — never charged twice, even if 5 requests arrive at the same moment |
+| **Conflict check** | Reusing a key with a *different* amount is rejected with `409 Conflict` |
+| **Retry + backoff** | Stuck payments are retried after 2s, 4s, 8s. `FAILED` after 3 failed retries |
+| **Webhook** | A notification is logged every time a payment reaches `SUCCESS` or `FAILED` |
+| **Optimistic locking** | JPA `@Version` stops two updates from silently overwriting each other |
+| **Redis cache + fallback** | Idempotency keys are cached in Redis for 24h. If Redis is down, MySQL is used instead |
 
 ---
 
-## How to Run Locally
+## Project structure
+
+```
+├── src/main/java/com/paygateway/
+│   ├── PaymentGatewayApplication.java   Entry point (+ @EnableScheduling)
+│   ├── config/WebConfig.java            CORS (lets the React app call the API)
+│   ├── controller/PaymentController.java  REST endpoints (HTTP only, no logic)
+│   ├── dto/PaymentRequest.java          Request body + validation rules
+│   ├── exception/                       Custom errors + GlobalExceptionHandler (clean JSON errors)
+│   ├── model/                           Transaction entity + TransactionStatus state machine
+│   ├── repository/TransactionRepository.java  Database queries
+│   └── service/
+│       ├── PaymentService.java          Main logic: idempotency, state changes, stats
+│       ├── IdempotencyCache.java        Redis wrapper (falls back to MySQL if Redis is down)
+│       ├── RetryService.java            Background job: retries with exponential backoff
+│       └── WebhookService.java          Webhook simulation
+├── src/main/resources/
+│   ├── application.properties           Settings (no passwords — safe to commit)
+│   ├── secrets.properties.example       Template for your local passwords
+│   └── static/index.html                Small "API is running" page
+├── src/test/java/                       Unit tests
+├── frontend/                            React dashboard (Vite)
+│   ├── .env.development                 Backend URL for local dev (localhost:8080)
+│   ├── .env.production                  Backend URL for the deployed site (Render)
+│   └── src/
+│       ├── api.js                       All calls to the backend (timeout + readable errors)
+│       ├── utils.js                     Small helpers (dates, amounts, status colors, history)
+│       ├── index.css                    Tailwind + our colors and fonts
+│       ├── App.jsx                      Page state + auto-refresh of pending payments
+│       └── components/                  UI pieces (Checkout, LiveTracker, Timeline, ...)
+└── Dockerfile                           Used by Render to build and run the backend
+```
+
+---
+
+## Run it locally
 
 ### Prerequisites
+- Java 17+ and Maven
+- Node.js 20.19+ (or 22+)
+- A MySQL database (e.g. free [Aiven](https://aiven.io/free-mysql-database)) and a Redis database (e.g. free [Redis Cloud](https://redis.io/cloud/))
 
-- Java 17+
-- Maven 3.8+
-- MySQL 8+ on `localhost:3306`
-- Redis on `localhost:6379`
-
-### Step 1 — Start MySQL and Redis
-
+### 1. Add your passwords
 ```bash
-# macOS (Homebrew)
-brew services start mysql
-brew services start redis
-
-# Linux
-sudo systemctl start mysql redis
+cp src/main/resources/secrets.properties.example src/main/resources/secrets.properties
 ```
+Open `secrets.properties` and fill in your MySQL and Redis details.
+This file is git-ignored, so your passwords never reach GitHub.
 
-### Step 2 — Configure credentials (if needed)
-
-The app defaults to `root / root` for MySQL. If your setup differs, edit:
-
-```
-src/main/resources/application.properties
-```
-
-```properties
-spring.datasource.username=root
-spring.datasource.password=your_password
-```
-
-The database `paygateway` is auto-created on first run (`createDatabaseIfNotExist=true`).
-
-### Step 3 — Build and run
-
+### 2. Start the backend
 ```bash
 mvn spring-boot:run
 ```
+Wait for `Started PaymentGatewayApplication`. The API runs on http://localhost:8080.
+The `transactions` table is created automatically on first start.
 
-That's it. The server starts on port 8080.
-
-### Step 4 — Open the UI
-
+### 3. Start the frontend (second terminal)
+```bash
+cd frontend
+npm install
+npm run dev
 ```
-http://localhost:8080
-```
+Open the URL it prints (usually http://localhost:5173).
 
-The web dashboard lets you initiate payments, check transaction status, view live stats, and watch the state machine in action.
+### 4. Run the tests
+```bash
+mvn test
+```
 
 ---
 
-## API Endpoints
+## API
 
 ### `POST /api/payments/initiate`
-
-Initiate a payment. Idempotent — calling twice with the same key returns the existing transaction.
-
 ```bash
 curl -X POST http://localhost:8080/api/payments/initiate \
   -H "Content-Type: application/json" \
-  -d '{
-    "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
-    "amount": 499.99
-  }'
+  -d '{"idempotencyKey": "order-123", "amount": 499.99}'
 ```
-
-**Response:**
 ```json
 {
   "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000",
+  "idempotencyKey": "order-123",
   "amount": 499.99,
   "status": "SUCCESS",
-  "createdAt": "2024-01-15T10:30:00",
-  "updatedAt": "2024-01-15T10:30:01",
+  "createdAt": "2026-09-30T11:34:24Z",
+  "updatedAt": "2026-09-30T11:34:25Z",
   "version": 2,
   "retryCount": 0
 }
 ```
 
----
+### `GET /api/payments/{id}` — current state of one payment
+### `GET /api/payments/stats` — `{ "total": 12, "initiated": 0, "processing": 2, "success": 8, "failed": 2 }`
 
-### `GET /api/payments/{transactionId}`
+### Status codes
+| Code | When |
+|---|---|
+| `201` | Payment created (or the existing one returned for a repeated key) |
+| `400` | Invalid input — e.g. missing key, amount ≤ 0, more than 2 decimals, key longer than 64 characters |
+| `404` | No payment with that id |
+| `409` | Idempotency key already used with a different amount |
+| `500` | Unexpected server error (details only in the server log, never sent to the client) |
 
-Get the current state of a transaction.
-
-```bash
-curl http://localhost:8080/api/payments/a1b2c3d4-e5f6-7890-abcd-ef1234567890
-```
-
----
-
-### `GET /api/payments/stats`
-
-Get live transaction counts by status — used by the dashboard.
-
-```bash
-curl http://localhost:8080/api/payments/stats
-```
-
-```json
-{ "total": 12, "initiated": 0, "processing": 2, "success": 8, "failed": 2 }
-```
+All errors look like `{ "error": "message" }`.
 
 ---
 
-## How It Works
+## How it works
 
-### State Machine
-
+### Idempotency
 ```
-INITIATED ──► PROCESSING ──► SUCCESS
-                        └──► FAILED
+Request with idempotencyKey
+  │
+  ├─ Redis has the key?  → return that payment        (fast path)
+  ├─ MySQL has the key?  → return it, save key to Redis (Redis empty or down)
+  └─ New key             → INSERT the payment
+                            └─ INSERT fails with "duplicate key"?
+                               Another request saved it a moment earlier → return that one
 ```
+The `idempotency_key` column is `UNIQUE`, so the database itself guarantees a key is only used once.
 
-`TransactionStatus.canTransitionTo()` enforces every transition. Any invalid transition throws an exception before touching the database.
+### Retry with exponential backoff
+`RetryService` runs every 5 seconds and picks up payments stuck in `PROCESSING`:
 
-### Idempotency Flow
-
-```
-Client sends idempotencyKey
-    │
-    ▼
-Check Redis (O(1))
-    ├─ HIT  → return cached transaction (no DB hit)
-    │
-    └─ MISS → Check MySQL
-                  ├─ Found  → re-cache in Redis, return
-                  └─ Not found → create new transaction
-```
-
-### Retry with Exponential Backoff
-
-`RetryService` runs on a 5-second schedule. It picks up any transaction stuck in `PROCESSING`:
-
-| Attempt | Waits before retrying | Success chance |
+| Retry | Waits | Success chance (demo) |
 |---|---|---|
 | 1 | 2 s | 60% |
 | 2 | 4 s | 60% |
 | 3 | 8 s | 60% |
-| — | — | → permanent FAILED |
+| — | — | → `FAILED` |
 
-### Webhook
+Every status change goes through `Transaction.changeStatus()`, which enforces the state machine.
 
-When a transaction reaches `SUCCESS` or `FAILED`, `WebhookService.notifyTerminalState()` fires:
-
-```
-=== WEBHOOK NOTIFICATION ===
-POST /webhook/notify
-  transactionId : a1b2c3...
-  status        : SUCCESS
-  amount        : 499.99
-============================
-```
-
-In production this would make an actual HTTP POST to the merchant's callback URL.
+### Dates
+All times are stored and returned in UTC (e.g. `2026-09-30T11:34:24Z`). The browser shows them in the user's own time zone.
 
 ---
 
-## Database Schema
+## Deploying
 
-Auto-created by Hibernate (`ddl-auto=update`):
+### Backend (Render, using the Dockerfile)
+Add these **Environment Variables** in the Render dashboard (same names as in `secrets.properties`):
 
-```sql
-CREATE TABLE transactions (
-    id              VARCHAR(36)    PRIMARY KEY,
-    idempotency_key VARCHAR(64)    UNIQUE NOT NULL,
-    amount          DECIMAL(15,2)  NOT NULL,
-    status          VARCHAR(20)    NOT NULL,
-    created_at      DATETIME,
-    updated_at      DATETIME,
-    version         INT,
-    retry_count     INT DEFAULT 0
-);
-```
+| Name | Example |
+|---|---|
+| `DB_URL` | `jdbc:mysql://HOST:PORT/defaultdb?sslMode=REQUIRED` |
+| `DB_USERNAME` | `avnadmin` |
+| `DB_PASSWORD` | your MySQL password |
+| `REDIS_HOST` | `redis-12345.xxx.cloud.redislabs.com` |
+| `REDIS_PORT` | `12345` |
+| `REDIS_PASSWORD` | your Redis password |
 
----
+`PORT` is set by Render automatically.
 
-## Project Structure
-
-```
-src/main/java/com/paygateway/
-├── PaymentGatewayApplication.java    # Entry point + @EnableScheduling
-├── config/
-│   ├── RedisConfig.java              # RedisTemplate bean
-│   └── WebConfig.java                # CORS configuration
-├── controller/
-│   └── PaymentController.java        # REST endpoints + request validation
-├── service/
-│   ├── PaymentService.java           # Core logic: idempotency, state transitions, stats
-│   ├── RetryService.java             # Scheduled retry with exponential backoff
-│   └── WebhookService.java           # Webhook notification simulation
-├── repository/
-│   └── TransactionRepository.java    # JPA queries
-└── model/
-    ├── Transaction.java              # JPA entity with @Version optimistic locking
-    └── TransactionStatus.java        # Enum with state machine rules
-
-src/main/resources/
-├── application.properties            # DB + Redis + app config
-└── static/
-    └── index.html                    # Web dashboard (served at http://localhost:8080)
-```
+### Frontend
+`npm run build` uses the backend URL from `frontend/.env.production`.
+If your backend URL changes, update that file (or set `VITE_API_URL` in your hosting dashboard).
 
 ---
 
-## Tech Stack
-
+## Tech stack
 | Layer | Technology |
 |---|---|
-| Framework | Spring Boot 3.2 |
-| Language | Java 17 |
+| Backend | Java 17, Spring Boot 3.2, Spring Data JPA, Bean Validation |
 | Database | MySQL 8 |
 | Cache | Redis |
-| Build | Maven |
-| Container | Docker (multi-stage, Alpine) |
-| Frontend | HTML5 + Vanilla JS (no dependencies) |
+| Frontend | React 19, Vite, Tailwind CSS 4 |
+| Tests | JUnit 5 |
+| Deploy | Docker on Render |

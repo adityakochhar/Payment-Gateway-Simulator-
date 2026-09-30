@@ -1,17 +1,27 @@
 package com.paygateway.model;
 
+/**
+ * Payment states and the allowed moves between them:
+ *
+ *   INITIATED -> PROCESSING -> SUCCESS
+ *                          \-> FAILED
+ *
+ * SUCCESS and FAILED are final: nothing can change after that.
+ */
 public enum TransactionStatus {
     INITIATED,
     PROCESSING,
     SUCCESS,
     FAILED;
 
-    // Valid transitions: INITIATED -> PROCESSING -> SUCCESS or FAILED
     public boolean canTransitionTo(TransactionStatus next) {
-        return switch (this) {
-            case INITIATED -> next == PROCESSING;
-            case PROCESSING -> next == SUCCESS || next == FAILED;
-            case SUCCESS, FAILED -> false; // terminal states
-        };
+        if (this == INITIATED) {
+            return next == PROCESSING;
+        }
+        if (this == PROCESSING) {
+            return next == SUCCESS || next == FAILED;
+        }
+        // SUCCESS and FAILED are final states
+        return false;
     }
 }

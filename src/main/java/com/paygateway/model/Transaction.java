@@ -2,7 +2,8 @@ package com.paygateway.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Entity
@@ -23,54 +24,79 @@ public class Transaction {
     @Column(name = "status", nullable = false, length = 20)
     private TransactionStatus status;
 
+    // Instant = an exact moment in UTC. It is sent to the browser like
+    // "2026-09-30T11:30:37Z" and the browser shows it in the user's own time zone.
     @Column(name = "created_at", columnDefinition = "datetime")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", columnDefinition = "datetime")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
-    // Optimistic locking — prevents concurrent state corruption
+    // Optimistic locking: JPA increases this number on every update.
+    // If two updates happen at the same time, the second one fails
+    // instead of silently overwriting the first one.
     @Version
     @Column(name = "version")
     private Integer version;
 
     @Column(name = "retry_count")
-    private int retryCount = 0;
+    private int retryCount;
+
+    // Empty constructor is required by JPA. Our code uses the other constructor.
+    protected Transaction() {
+    }
+
+    public Transaction(String idempotencyKey, BigDecimal amount) {
+        this.id = UUID.randomUUID().toString();
+        this.idempotencyKey = idempotencyKey;
+        this.amount = amount;
+        this.status = TransactionStatus.INITIATED;
+        this.retryCount = 0;
+    }
 
     @PrePersist
     protected void onCreate() {
-        if (id == null) id = UUID.randomUUID().toString();
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        if (status == null) status = TransactionStatus.INITIATED;
+        // The DB column stores whole seconds, so we drop the fraction here.
+        // That way the first API response matches what is saved in MySQL.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        createdAt = now;
+        updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    /**
+     * The ONLY way to change the status.
+     * It follows the state machine: INITIATED -> PROCESSING -> SUCCESS / FAILED.
+     */
+    public void changeStatus(TransactionStatus nextStatus) {
+        if (!status.canTransitionTo(nextStatus)) {
+            throw new IllegalStateException(
+                    "Invalid status change " + status + " -> " + nextStatus + " for transaction " + id);
+        }
+        status = nextStatus;
+    }
+
+    public void increaseRetryCount() {
+        retryCount = retryCount + 1;
     }
 
     public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
 
     public String getIdempotencyKey() { return idempotencyKey; }
-    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
 
     public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
     public TransactionStatus getStatus() { return status; }
-    public void setStatus(TransactionStatus status) { this.status = status; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     public Integer getVersion() { return version; }
-    public void setVersion(Integer version) { this.version = version; }
 
     public int getRetryCount() { return retryCount; }
-    public void setRetryCount(int retryCount) { this.retryCount = retryCount; }
 }
